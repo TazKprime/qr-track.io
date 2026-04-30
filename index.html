@@ -1,0 +1,445 @@
+
+<h2 class="sr-only">QR Code Check-In App — register attendees, scan QR codes, and view check-in logs with offline-first sync.</h2>
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: var(--color-text-primary);
+    --muted: var(--color-text-secondary);
+    --bg: var(--color-background-primary);
+    --surface: var(--color-background-secondary);
+    --border: var(--color-border-tertiary);
+    --border-strong: var(--color-border-secondary);
+    --success-bg: var(--color-background-success);
+    --success-text: var(--color-text-success);
+    --danger-bg: var(--color-background-danger);
+    --danger-text: var(--color-text-danger);
+    --info-bg: var(--color-background-info);
+    --info-text: var(--color-text-info);
+    --warn-bg: var(--color-background-warning);
+    --warn-text: var(--color-text-warning);
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: var(--border-radius-md);
+    --radius-lg: var(--border-radius-lg);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); color: var(--ink); background: transparent; font-size: 15px; }
+  .app { max-width: 720px; margin: 0 auto; padding: 0 0 2rem; }
+  .nav { display: flex; gap: 4px; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; padding: 1rem 0 0; overflow-x: auto; }
+  .nav-btn { font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 8px 14px; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px; white-space: nowrap; transition: color 0.15s; }
+  .nav-btn.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .nav-btn:hover:not(.active) { color: var(--ink); }
+  .page { display: none; } .page.active { display: block; }
+  .section-title { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-family: var(--mono); }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+  input[type=text], input[type=email], input[type=tel], select { width: 100%; font-family: var(--sans); font-size: 14px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .field-row.single { grid-template-columns: 1fr; }
+  .field-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .btn { font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 8px 16px; border: 0.5px solid var(--border-strong); background: var(--bg); color: var(--ink); border-radius: var(--radius); cursor: pointer; transition: background 0.15s, transform 0.1s; white-space: nowrap; }
+  .btn:hover { background: var(--surface); }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn.primary:hover { opacity: 0.85; }
+  .btn.danger { background: var(--danger-bg); color: var(--danger-text); border-color: transparent; }
+  .btn.success { background: var(--success-bg); color: var(--success-text); border-color: transparent; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .stat { background: var(--surface); border-radius: var(--radius); padding: 1rem; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-size: 26px; font-weight: 500; font-family: var(--mono); }
+  .stat-value.green { color: var(--success-text); }
+  .stat-value.amber { color: var(--warn-text); }
+  .person-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .person-row:last-child { border-bottom: none; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--info-bg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: var(--info-text); flex-shrink: 0; font-family: var(--mono); }
+  .person-info { flex: 1; min-width: 0; }
+  .person-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .person-meta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px; }
+  .badge.checked { background: var(--success-bg); color: var(--success-text); }
+  .badge.pending { background: var(--warn-bg); color: var(--warn-text); }
+  .badge.synced { background: var(--info-bg); color: var(--info-text); }
+  .scanner-box { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; text-align: center; margin-bottom: 1rem; }
+  .scan-input-row { display: flex; gap: 8px; }
+  .scan-input-row input { font-family: var(--mono); font-size: 14px; letter-spacing: 0.05em; }
+  .log-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .log-table th { text-align: left; padding: 6px 8px; font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); border-bottom: 0.5px solid var(--border); font-family: var(--mono); }
+  .log-table td { padding: 8px; border-bottom: 0.5px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-time { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; padding: 10px 20px; border-radius: 99px; font-family: var(--sans); z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .sync-bar { display: flex; align-items: center; justify-content: space-between; background: var(--warn-bg); color: var(--warn-text); border-radius: var(--radius); padding: 8px 12px; font-size: 13px; margin-bottom: 1rem; }
+  .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 14px; }
+</style>
+
+<div class="app">
+  <div class="nav">
+    <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-btn" onclick="showPage('register')">Register</button>
+    <button class="nav-btn" onclick="showPage('scanner')">Scanner</button>
+    <button class="nav-btn" onclick="showPage('logs')">Logs</button>
+    <button class="nav-btn" onclick="showPage('settings')">Settings</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats" id="dash-stats"></div>
+    <div id="dash-sync-bar"></div>
+    <p class="section-title">Recent check-ins</p>
+    <div class="card"><div id="dash-recent"></div></div>
+  </div>
+
+  <!-- REGISTER -->
+  <div class="page" id="page-register">
+    <p class="section-title">Add attendee</p>
+    <div class="card">
+      <div class="field-row">
+        <div><div class="field-label">First name</div><input type="text" id="reg-fname" placeholder="Kofi"></div>
+        <div><div class="field-label">Last name</div><input type="text" id="reg-lname" placeholder="Asante"></div>
+      </div>
+      <div class="field-row">
+        <div><div class="field-label">Email</div><input type="email" id="reg-email" placeholder="kofi@example.com"></div>
+        <div><div class="field-label">Phone number</div><input type="tel" id="reg-phone" placeholder="+233 24 000 0000"></div>
+      </div>
+      <div class="field-row single">
+        <div><div class="field-label">Role / Group</div><input type="text" id="reg-role" placeholder="VIP, Staff, General..."></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn primary" onclick="registerPerson()">Add &amp; generate QR</button>
+        <button class="btn" onclick="importCSV()">Import CSV</button>
+      </div>
+    </div>
+
+    <p class="section-title" style="margin-top:1.5rem;">All attendees (<span id="reg-count">0</span>)</p>
+    <div class="card"><div id="reg-list"></div></div>
+  </div>
+
+  <!-- SCANNER -->
+  <div class="page" id="page-scanner">
+    <p class="section-title">Scan QR code</p>
+    <div class="scanner-box">
+      <div style="font-size:48px;margin-bottom:1rem;">⬛</div>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:1rem;">Point camera at attendee QR code<br><span style="font-size:12px;">or enter ID below manually</span></p>
+      <div class="scan-input-row">
+        <input type="text" id="scan-input" placeholder="Scan or type ID here..." autofocus onkeydown="if(event.key==='Enter')doScan()">
+        <button class="btn primary" onclick="doScan()">Check in</button>
+      </div>
+    </div>
+    <div id="scan-result"></div>
+    <p class="section-title" style="margin-top:1.5rem;">Today's scans (<span id="scan-count">0</span>)</p>
+    <div class="card"><div id="scan-recent"></div></div>
+  </div>
+
+  <!-- LOGS -->
+  <div class="page" id="page-logs">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <p class="section-title" style="margin:0;">Check-in log (<span id="log-count">0</span>)</p>
+      <div style="display:flex;gap:6px;">
+        <button class="btn sm" onclick="exportCSV()">Export CSV</button>
+        <button class="btn sm danger" onclick="clearLogs()">Clear</button>
+      </div>
+    </div>
+    <div class="card"><div id="log-container"></div></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <p class="section-title">Sync settings</p>
+    <div class="card">
+      <div class="field-row single">
+        <div><div class="field-label">Webhook / API endpoint URL</div><input type="text" id="set-url" placeholder="https://your-server.com/api/checkin"></div>
+      </div>
+      <div class="field-row single">
+        <div><div class="field-label">API key (optional)</div><input type="text" id="set-key" placeholder="Bearer token or API key"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn primary" onclick="saveSettings()">Save</button>
+        <button class="btn success" onclick="syncNow()">Sync now</button>
+      </div>
+      <p id="sync-status" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
+    </div>
+    <p class="section-title" style="margin-top:1.5rem;">Data management</p>
+    <div class="card">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn sm" onclick="exportAll()">Export all data (JSON)</button>
+        <button class="btn sm danger" onclick="nukeAll()">Reset everything</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px;">Data is stored locally in IndexedDB and syncs to your endpoint when online.</p>
+    </div>
+  </div>
+</div>
+
+<div id="qr-modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+let db;
+const DB_NAME = 'qr_checkin_v2';
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('persons')) d.createObjectStore('persons', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('logs')) { const ls = d.createObjectStore('logs', { keyPath: 'id', autoIncrement: true }); ls.createIndex('personId','personId',{unique:false}); }
+      if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings', { keyPath: 'k' });
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+function txRW(s) { return db.transaction(s,'readwrite').objectStore(s); }
+function txR(s) { return db.transaction(s,'readonly').objectStore(s); }
+function dbPut(s,o) { return new Promise((res,rej) => { const r=txRW(s).put(o); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbGetAll(s) { return new Promise((res,rej) => { const r=txR(s).getAll(); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbGet(s,k) { return new Promise((res,rej) => { const r=txR(s).get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbDelete(s,k) { return new Promise((res,rej) => { const r=txRW(s).delete(k); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+
+function uid() { return 'P'+Math.random().toString(36).slice(2,10).toUpperCase(); }
+function initials(n) { return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function fmtTime(ts) { const d=new Date(ts); return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function isToday(ts) { return new Date(ts).toDateString()===new Date().toDateString(); }
+
+let toastTimer;
+function toast(msg,dur=2500) { const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),dur); }
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>{ if(b.textContent.toLowerCase().includes(id.slice(0,4))) b.classList.add('active'); });
+  if(id==='dashboard') renderDashboard();
+  if(id==='register') renderRegister();
+  if(id==='logs') renderLogs();
+  if(id==='scanner') renderScanRecent();
+  if(id==='settings') loadSettings();
+}
+
+async function registerPerson() {
+  const fn=document.getElementById('reg-fname').value.trim();
+  const ln=document.getElementById('reg-lname').value.trim();
+  const em=document.getElementById('reg-email').value.trim();
+  const ph=document.getElementById('reg-phone').value.trim();
+  const ro=document.getElementById('reg-role').value.trim()||'General';
+  if(!fn||!ln){toast('Enter first and last name');return;}
+  const person={id:uid(),firstName:fn,lastName:ln,email:em,phone:ph,role:ro,createdAt:Date.now(),checkedIn:false};
+  await dbPut('persons',person);
+  ['reg-fname','reg-lname','reg-email','reg-phone','reg-role'].forEach(id=>document.getElementById(id).value='');
+  toast('Registered '+fn+' '+ln);
+  renderRegister();
+  showQR(person);
+}
+
+async function renderRegister() {
+  const persons=await dbGetAll('persons');
+  document.getElementById('reg-count').textContent=persons.length;
+  const el=document.getElementById('reg-list');
+  if(!persons.length){el.innerHTML='<div class="empty">No attendees yet.</div>';return;}
+  persons.sort((a,b)=>b.createdAt-a.createdAt);
+  el.innerHTML=persons.map(p=>`
+    <div class="person-row">
+      <div class="avatar">${initials(p.firstName+' '+p.lastName)}</div>
+      <div class="person-info">
+        <div class="person-name">${p.firstName} ${p.lastName}</div>
+        <div class="person-meta">${p.role}${p.phone?' · '+p.phone:''}${p.email?' · '+p.email:''}</div>
+      </div>
+      <span class="badge ${p.checkedIn?'checked':'pending'}">${p.checkedIn?'checked in':'pending'}</span>
+      <button class="btn sm" onclick='showQR(${JSON.stringify({id:p.id,firstName:p.firstName,lastName:p.lastName,role:p.role,phone:p.phone||""})})'>QR</button>
+      <button class="btn sm danger" onclick="deletePerson('${p.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function deletePerson(id){await dbDelete('persons',id);toast('Removed');renderRegister();}
+
+function importCSV() {
+  const input=document.createElement('input');input.type='file';input.accept='.csv';
+  input.onchange=async e=>{
+    const text=await e.target.files[0].text();
+    const lines=text.split('\n').filter(Boolean);
+    let added=0;
+    for(let i=1;i<lines.length;i++){
+      const cols=lines[i].split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+      if(cols[0]&&cols[1]){
+        const person={id:uid(),firstName:cols[0],lastName:cols[1],email:cols[2]||'',phone:cols[3]||'',role:cols[4]||'General',createdAt:Date.now(),checkedIn:false};
+        await dbPut('persons',person);added++;
+      }
+    }
+    toast('Imported '+added+' attendees');renderRegister();
+  };
+  input.click();
+}
+
+function showQR(p) {
+  document.getElementById('qr-modal-root').innerHTML=`
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;" onclick="if(event.target===this)closeQR()">
+      <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--border-radius-lg);padding:1.5rem;max-width:300px;width:90%;text-align:center;">
+        <h3 style="font-size:16px;font-weight:500;margin-bottom:2px;">${p.firstName} ${p.lastName}</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:${p.phone?'4px':'1rem'}">${p.role||''}</p>
+        ${p.phone?`<p style="font-size:12px;color:var(--muted);margin-bottom:1rem;font-family:var(--mono);">${p.phone}</p>`:''}
+        <div style="background:#fff;padding:12px;border-radius:8px;display:inline-block;margin-bottom:10px;" id="qr-canvas-${p.id}"></div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:1rem;">${p.id}</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button class="btn sm" onclick="window.print()">Print</button>
+          <button class="btn sm" onclick="closeQR()">Close</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>{try{new QRCode(document.getElementById('qr-canvas-'+p.id),{text:p.id,width:180,height:180,correctLevel:QRCode.CorrectLevel.H});}catch(e){}},50);
+}
+function closeQR(){document.getElementById('qr-modal-root').innerHTML='';}
+
+async function doScan() {
+  const input=document.getElementById('scan-input');
+  const raw=input.value.trim().toUpperCase();
+  if(!raw)return;
+  input.value='';input.focus();
+  const person=await dbGet('persons',raw);
+  const resultEl=document.getElementById('scan-result');
+  if(!person){resultEl.innerHTML=`<div class="card" style="border-color:var(--color-border-danger);background:var(--danger-bg);color:var(--danger-text);font-size:14px;font-weight:500;text-align:center;padding:1rem;">Unknown ID: ${raw}</div>`;toast('Unknown QR code',2000);return;}
+  const logs=await dbGetAll('logs');
+  if(logs.some(l=>l.personId===person.id&&isToday(l.ts))){resultEl.innerHTML=`<div class="card" style="border-color:var(--color-border-warning);background:var(--warn-bg);color:var(--warn-text);font-size:14px;font-weight:500;text-align:center;padding:1rem;">Already checked in today: ${person.firstName} ${person.lastName}</div>`;toast('Already checked in',2000);return;}
+  const log={personId:person.id,name:person.firstName+' '+person.lastName,role:person.role,phone:person.phone||'',ts:Date.now(),synced:false};
+  await dbPut('logs',log);
+  person.checkedIn=true;await dbPut('persons',person);
+  resultEl.innerHTML=`<div class="card" style="border-color:var(--color-border-success);background:var(--success-bg);color:var(--success-text);font-size:15px;font-weight:500;text-align:center;padding:1rem;">✓ ${person.firstName} ${person.lastName}${person.phone?' ('+person.phone+')':''} — ${fmtTime(log.ts)}</div>`;
+  toast('Checked in!',2000);renderScanRecent();autoSync();
+}
+
+async function renderScanRecent() {
+  const logs=await dbGetAll('logs');
+  const today=logs.filter(l=>isToday(l.ts)).sort((a,b)=>b.ts-a.ts);
+  document.getElementById('scan-count').textContent=today.length;
+  const el=document.getElementById('scan-recent');
+  if(!today.length){el.innerHTML='<div class="empty">No scans yet today.</div>';return;}
+  el.innerHTML=today.slice(0,10).map(l=>`
+    <div class="person-row">
+      <div class="avatar" style="background:var(--success-bg);color:var(--success-text);">${initials(l.name)}</div>
+      <div class="person-info"><div class="person-name">${l.name}</div><div class="person-meta">${l.role}${l.phone?' · '+l.phone:''}</div></div>
+      <span class="log-time">${fmtTime(l.ts)}</span>
+      <span class="badge ${l.synced?'synced':'pending'}">${l.synced?'synced':'local'}</span>
+    </div>`).join('');
+}
+
+async function renderLogs() {
+  const logs=await dbGetAll('logs');logs.sort((a,b)=>b.ts-a.ts);
+  document.getElementById('log-count').textContent=logs.length;
+  const el=document.getElementById('log-container');
+  if(!logs.length){el.innerHTML='<div class="empty">No logs yet.</div>';return;}
+  el.innerHTML=`<div style="overflow-x:auto;"><table class="log-table">
+    <thead><tr><th style="width:28%">Name</th><th style="width:16%">Phone</th><th style="width:14%">Role</th><th style="width:26%">Time</th><th style="width:16%">Status</th></tr></thead>
+    <tbody>${logs.map(l=>`<tr>
+      <td style="font-weight:500;">${l.name}</td>
+      <td style="color:var(--muted);font-family:var(--mono);font-size:12px;">${l.phone||'—'}</td>
+      <td style="color:var(--muted);">${l.role||'—'}</td>
+      <td class="log-time">${fmtTime(l.ts)}</td>
+      <td><span class="badge ${l.synced?'synced':'pending'}">${l.synced?'synced':'local'}</span></td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function clearLogs(){
+  if(!confirm('Delete all check-in logs?'))return;
+  const logs=await dbGetAll('logs');
+  for(const l of logs)if(l.id)await dbDelete('logs',l.id);
+  const persons=await dbGetAll('persons');
+  for(const p of persons){p.checkedIn=false;await dbPut('persons',p);}
+  toast('Logs cleared');renderLogs();
+}
+
+function exportCSV(){
+  dbGetAll('logs').then(logs=>{
+    const rows=[['Name','Phone','Role','Timestamp','ISO','Synced']];
+    logs.sort((a,b)=>b.ts-a.ts).forEach(l=>rows.push([l.name,l.phone||'',l.role||'',fmtTime(l.ts),new Date(l.ts).toISOString(),l.synced?'yes':'no']));
+    const csv=rows.map(r=>r.map(c=>'"'+c+'"').join(',')).join('\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='checkin-logs.csv';a.click();
+    toast('CSV exported');
+  });
+}
+
+async function renderDashboard(){
+  const [persons,logs]=await Promise.all([dbGetAll('persons'),dbGetAll('logs')]);
+  const todayLogs=logs.filter(l=>isToday(l.ts));
+  const unsynced=logs.filter(l=>!l.synced);
+  const checkedIn=new Set(todayLogs.map(l=>l.personId)).size;
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Registered</div><div class="stat-value">${persons.length}</div></div>
+    <div class="stat"><div class="stat-label">Today</div><div class="stat-value green">${checkedIn}</div></div>
+    <div class="stat"><div class="stat-label">Total logs</div><div class="stat-value">${logs.length}</div></div>
+    <div class="stat"><div class="stat-label">Unsynced</div><div class="stat-value amber">${unsynced.length}</div></div>`;
+  document.getElementById('dash-sync-bar').innerHTML=unsynced.length
+    ?`<div class="sync-bar"><span>${unsynced.length} check-in(s) pending sync</span><button class="btn sm" onclick="showPage('settings')">Sync →</button></div>`:'';
+  const recent=[...logs].sort((a,b)=>b.ts-a.ts).slice(0,5);
+  const recEl=document.getElementById('dash-recent');
+  if(!recent.length){recEl.innerHTML='<div class="empty">No check-ins yet.</div>';return;}
+  recEl.innerHTML=recent.map(l=>`
+    <div class="person-row">
+      <div class="avatar" style="background:var(--success-bg);color:var(--success-text);">${initials(l.name)}</div>
+      <div class="person-info"><div class="person-name">${l.name}</div><div class="person-meta">${l.role}${l.phone?' · '+l.phone:''}</div></div>
+      <span class="log-time">${fmtTime(l.ts)}</span>
+    </div>`).join('');
+}
+
+let settings={url:'',key:''};
+async function loadSettings(){
+  try{
+    const u=await dbGet('settings','url');const k=await dbGet('settings','key');
+    if(u){settings.url=u.v;document.getElementById('set-url').value=u.v;}
+    if(k){settings.key=k.v;document.getElementById('set-key').value=k.v;}
+  }catch(e){}
+}
+async function saveSettings(){
+  settings.url=document.getElementById('set-url').value.trim();
+  settings.key=document.getElementById('set-key').value.trim();
+  await dbPut('settings',{k:'url',v:settings.url});
+  await dbPut('settings',{k:'key',v:settings.key});
+  toast('Settings saved');
+}
+async function syncNow(){
+  if(!settings.url){toast('Set an endpoint URL first');return;}
+  const statusEl=document.getElementById('sync-status');
+  const logs=await dbGetAll('logs');
+  const unsynced=logs.filter(l=>!l.synced);
+  if(!unsynced.length){statusEl.textContent='Nothing to sync.';return;}
+  statusEl.textContent='Syncing '+unsynced.length+' record(s)...';
+  try{
+    const headers={'Content-Type':'application/json'};
+    if(settings.key)headers['Authorization']=settings.key.startsWith('Bearer ')?settings.key:'Bearer '+settings.key;
+    const resp=await fetch(settings.url,{method:'POST',headers,body:JSON.stringify({checkins:unsynced.map(l=>({id:l.id,personId:l.personId,name:l.name,phone:l.phone||'',role:l.role,timestamp:new Date(l.ts).toISOString()}))})});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    for(const l of unsynced){l.synced=true;await dbPut('logs',l);}
+    statusEl.textContent='Synced '+unsynced.length+' record(s) at '+new Date().toLocaleTimeString();
+    toast('Synced!');renderDashboard();
+  }catch(e){statusEl.textContent='Sync failed: '+e.message;toast('Sync failed — data saved locally',3000);}
+}
+async function autoSync(){if(!settings.url)return;try{await syncNow();}catch(e){}}
+function exportAll(){Promise.all([dbGetAll('persons'),dbGetAll('logs')]).then(([persons,logs])=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({persons,logs,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));a.download='checkin-data.json';a.click();});}
+async function nukeAll(){
+  if(!confirm('Delete ALL data?'))return;
+  await Promise.all(['persons','logs','settings'].map(s=>new Promise((res,rej)=>{const r=txRW(s).clear();r.onsuccess=res;r.onerror=rej;})));
+  toast('All data cleared');renderDashboard();
+}
+
+openDB().then(async()=>{
+  await loadSettings();
+  renderDashboard();
+  const persons=await dbGetAll('persons');
+  if(!persons.length){
+    const seeds=[
+      {id:'PABC12345',firstName:'Ama',lastName:'Owusu',email:'ama@example.com',phone:'+233 24 111 2233',role:'VIP',createdAt:Date.now()-5000,checkedIn:false},
+      {id:'PDEF67890',firstName:'Kwame',lastName:'Mensah',email:'kwame@example.com',phone:'+233 50 987 6543',role:'Staff',createdAt:Date.now()-4000,checkedIn:false},
+      {id:'PGHI11223',firstName:'Efua',lastName:'Boateng',email:'efua@example.com',phone:'',role:'General',createdAt:Date.now()-3000,checkedIn:false},
+    ];
+    for(const p of seeds)await dbPut('persons',p);
+    renderDashboard();
+  }
+  window.addEventListener('online',()=>{toast('Back online — syncing...',2000);autoSync();});
+});
+</script>
